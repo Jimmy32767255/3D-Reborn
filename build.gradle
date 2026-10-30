@@ -27,6 +27,19 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+
+	// 客户端游戏内测试（Fabric Client Game Test API）：
+	//   ./gradlew runClientGameTest
+	// 会真实启动客户端、新建单人存档、启用 3D 效果并连续推进若干帧，
+	// 用于验证仅在世界渲染期才会触发的双遍 + 合成路径（历史上这里曾因 UBO 标志位崩溃）。
+	fabricApi {
+		configureTests {
+			createSourceSet = true
+			modId = "rebof3d-gametest"
+			eula = true
+			username = "Player0"
+		}
+	}
 }
 
 dependencies {

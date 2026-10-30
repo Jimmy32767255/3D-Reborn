@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "rebof3d",
+	"version": "${version}",
+	"name": "3D-Reborn",
+	"description": "Re-introduces Minecraft's 3D Anaglyph stereoscopic effect (removed in 17w43a) with adjustable filter colours, camera separation and gamma calibration.",
+	"authors": [
+		"3D-Reborn"
+	],
+	"contact": {
+		"homepage": "https://github.com/",
+		"sources": "https://github.com/"
+	},
+	"license": "GPL-3.0-only",
+	"icon": "assets/rebof3d/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.rebof3d.Reborn3D"
+		],
+		"client": [
+			"dev.rebof3d.fabric.Reborn3DClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

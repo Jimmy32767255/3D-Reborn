@@ -11,3 +11,6 @@
 .DS_Store
 # Local gradle home (sandbox workaround)
 /.gradle-home/
+
+# Scratch / test logs
+/.tmp/

@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "dev.rebof3d.fabric.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"RenderPipelinesMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

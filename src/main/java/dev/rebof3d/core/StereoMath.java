@@ -36,6 +36,37 @@ public final class StereoMath {
 	}
 
 	/**
+	 * 把雾色/清屏色修正为「红青对称」的颜色，对应原版 1.12.2 {@code EntityRenderer}（{@code buq.java:1724-1733}）：
+	 *
+	 * <pre>
+	 * if (anaglyph) {
+	 *    float lum = (R*30 + G*59 + B*11) / 100;  // 亮度 → R
+	 *    float rg  = (R*30 + G*70) / 100;         // 偏红 → G
+	 *    float rb  = (R*30 + B*70) / 100;         // 偏青 → B
+	 *    R = lum; G = rg; B = rb;
+	 * }
+	 * </pre>
+	 *
+	 * <p>立体模式下左眼只能看到红通道、右眼只能看到青通道，未修正的雾色会让两侧亮度失衡
+	 * （天空/远景一侧偏亮、一侧偏暗）。原版据此把雾色重算为「亮度 + 红青偏色」的组合，
+	 * 使整屏底色在两只眼中观感一致。这也是原版唯一一处针对立体模式的整屏颜色校正。
+	 *
+	 * <p>本类不依赖 MC，可独立测试。
+	 */
+	public static float[] correctFogColor(float r, float g, float b) {
+		float[] out = new float[3];
+		correctFogColor(r, g, b, out);
+		return out;
+	}
+
+	/** 就地修正雾色，避免每帧分配数组。语义同 {@link #correctFogColor(float, float, float)}。 */
+	public static void correctFogColor(float r, float g, float b, float[] out) {
+		out[0] = (r * 30.0f + g * 59.0f + b * 11.0f) / 100.0f;
+		out[1] = (r * 30.0f + g * 70.0f) / 100.0f;
+		out[2] = (r * 30.0f + b * 70.0f) / 100.0f;
+	}
+
+	/**
 	 * 左眼通道权重（RGB）。原版固定「左=青(0,1,1)、右=红(1,0,0)」，此处允许用户自定义。
 	 */
 	public static float[] leftWeight(AnaglyphParams p) {

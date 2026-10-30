@@ -99,7 +99,13 @@ public final class AnaglyphRenderer {
 
 		GpuDevice device = RenderSystem.getDevice();
 		if (configUbo == null) {
-			configUbo = device.createBuffer(() -> "3D-Reborn config UBO", 128 /* USAGE_UNIFORM */, configScratch);
+			// 必须同时带 USAGE_COPY_DST：后续回写走 writeToBuffer（GPU 拷贝），
+			// 仅 USAGE_UNIFORM 会在第二帧回写时抛
+			// "Buffer needs USAGE_COPY_DST to be a destination for a copy"。
+			configUbo = device.createBuffer(
+				() -> "3D-Reborn config UBO",
+				GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST,
+				configScratch);
 		} else {
 			device.createCommandEncoder().writeToBuffer(configUbo.slice(0L, CONFIG_UBO_SIZE), configScratch);
 		}

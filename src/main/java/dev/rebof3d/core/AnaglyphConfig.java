@@ -75,4 +75,9 @@ public final class AnaglyphConfig {
 
 	// 仅用于把 load 阶段的异常带给调用方记录日志（不序列化）。
 	transient Throwable loadError;
+
+	/** 若上一次 {@link #load(Path)} 发生异常，返回该异常；否则返回 {@code null}。 */
+	public Throwable getLoadError() {
+		return loadError;
+	}
 }

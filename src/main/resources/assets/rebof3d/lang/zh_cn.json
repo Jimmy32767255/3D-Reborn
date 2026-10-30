@@ -1,0 +1,16 @@
+{
+  "rebof3d.screen.title": "3D-Reborn 设置",
+  "key.rebof3d.settings": "打开 3D-Reborn 设置",
+  "key.categories.rebof3d.main": "3D-Reborn",
+  "rebof3d.opt.enabled.on": "3D 效果：开",
+  "rebof3d.opt.enabled.off": "3D 效果：关",
+  "rebof3d.opt.camera_spacing": "摄像机间距",
+  "rebof3d.opt.gamma": "伽玛校准",
+  "rebof3d.opt.saturation": "饱和度",
+  "rebof3d.opt.left_r": "左滤光片 R",
+  "rebof3d.opt.left_g": "左滤光片 G",
+  "rebof3d.opt.left_b": "左滤光片 B",
+  "rebof3d.opt.right_r": "右滤光片 R",
+  "rebof3d.opt.right_g": "右滤光片 G",
+  "rebof3d.opt.right_b": "右滤光片 B"
+}

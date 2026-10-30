@@ -2,19 +2,15 @@ package dev.rebof3d.fabric.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import dev.rebof3d.core.AnaglyphParams;
 import dev.rebof3d.core.StereoMath;
 import dev.rebof3d.fabric.render.Reborn3DRenderer;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.Projection;
 import net.minecraft.client.renderer.ProjectionMatrixBuffer;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
 import org.joml.Matrix4f;
-import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -24,13 +20,18 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * 拦截 {@code GameRenderer.renderLevel()}，实现 anaglyph 的双遍渲染：
+ * 拦截 {@code GameRenderer.render()} 中对整帧 {@code renderLevel()} 的调用，实现 anaglyph 双遍渲染。
  *
- * <ol>
- *   <li>{@code @Redirect} 捕获 {@code projectionMatrix}（含 bob/传送门扭曲后的最终投影）；</li>
- *   <li>{@code @WrapOperation} 拦截 {@code levelRenderer.render(...)}：三维开启时渲染两次，
- *       每次偏移投影并切换到对应眼睛的离屏目标；再恢复主目标并执行合成；关闭时直通。</li>
- * </ol>
+ * <p>相较「只包住 {@code LevelRenderer.render}」的做法，这里包住整个 {@code renderLevel()}，
+ * 因此每只眼睛都会完整走一遍世界 + 手上物品/屏幕效果（{@code render3dHud}），
+ * 手部从而获得与场景一致的立体视差（与原版 1.12.2 每眼各画一次手一致）。
+ *
+ * <p>投影偏移通过两个 {@code @Redirect} 完成：
+ * <ul>
+ *   <li>{@code renderLevel} 里的 {@code ProjectionMatrixBuffer.getBuffer(Matrix4f)}（世界投影）；</li>
+ *   <li>{@code render3dHud} 里的 {@code ProjectionMatrixBuffer.getBuffer(Projection)}（手部投影）。</li>
+ * </ul>
+ * 二者都按当前眼睛索引 {@code rebof3d$currentEye} 加水平平移，使每遍渲染读到该眼对应的投影。
  */
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
@@ -40,44 +41,22 @@ public abstract class GameRendererMixin {
 	@Mutable
 	private RenderTarget mainRenderTarget;
 
-	@Shadow
-	@Final
-	private ProjectionMatrixBuffer levelProjectionMatrixBuffer;
-
+	/** 当前正在渲染的眼睛：-1 表示非立体直通、0 左眼、1 右眼。 */
 	@Unique
-	private final Matrix4f rebof3d$capturedProjection = new Matrix4f();
+	private int rebof3d$currentEye = -1;
 
-	/** 捕获最终投影矩阵（renderLevel 中 line 661 的 getBuffer(Matrix4f) 调用）。 */
-	@Redirect(
-		method = "renderLevel",
-		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;")
-	)
-	private GpuBufferSlice rebof3d$captureProjection(ProjectionMatrixBuffer instance, Matrix4f projectionMatrix) {
-		this.rebof3d$capturedProjection.set(projectionMatrix);
-		return instance.getBuffer(projectionMatrix);
-	}
-
-	/** 拦截世界渲染调用，做双遍 + 合成。 */
+	/** 拦截 render() 中的 renderLevel() 调用，开启时渲染两遍（每眼一次）再合成。 */
 	@WrapOperation(
-		method = "renderLevel",
-		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/LevelRenderer;render(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZZ)V")
+		method = "render",
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V")
 	)
-	private void rebof3d$wrapLevelRender(
-		LevelRenderer levelRenderer,
-		com.mojang.blaze3d.resource.GraphicsResourceAllocator resourceAllocator,
-		boolean renderOutline,
-		CameraRenderState cameraState,
-		GpuBufferSlice terrainFog,
-		Vector4f fogColor,
-		boolean shouldRenderSky,
-		boolean consistentDepthRequired,
-		Operation<Void> original
-	) {
+	private void rebof3d$wrapRenderLevel(GameRenderer instance, Operation<Void> original) {
 		AnaglyphParams params = Reborn3DRenderer.params();
 		RenderTarget trueMain = this.mainRenderTarget;
 
 		if (params == null || !params.enabled) {
-			original.call(levelRenderer, resourceAllocator, renderOutline, cameraState, terrainFog, fogColor, shouldRenderSky, consistentDepthRequired);
+			this.rebof3d$currentEye = -1;
+			original.call(instance);
 			return;
 		}
 
@@ -85,22 +64,48 @@ public abstract class GameRendererMixin {
 			Reborn3DRenderer.renderer().ensureTargets(trueMain.width, trueMain.height);
 
 			for (int eye = 0; eye < 2; eye++) {
-				// 偏移投影
-				Matrix4f shifted = new Matrix4f(this.rebof3d$capturedProjection);
-				shifted.translate(StereoMath.projectionShift(eye, params.cameraSpacing), 0.0f, 0.0f);
-				RenderSystem.setProjectionMatrix(this.levelProjectionMatrixBuffer.getBuffer(shifted), ProjectionType.PERSPECTIVE);
-
-				// 切换到该眼睛离屏目标
+				this.rebof3d$currentEye = eye;
+				// 切换到该眼睛离屏目标（render3dHud 也会写入此目标，故手部同样分眼）
 				this.mainRenderTarget = Reborn3DRenderer.renderer().eyeTarget(eye);
-				original.call(levelRenderer, resourceAllocator, renderOutline, cameraState, terrainFog, fogColor, shouldRenderSky, consistentDepthRequired);
+				original.call(instance);
 			}
 		} finally {
-			// 恢复真实主目标与投影
+			this.rebof3d$currentEye = -1;
 			this.mainRenderTarget = trueMain;
-			RenderSystem.setProjectionMatrix(this.levelProjectionMatrixBuffer.getBuffer(this.rebof3d$capturedProjection), ProjectionType.PERSPECTIVE);
 		}
 
 		// 合成到真实主目标
 		Reborn3DRenderer.renderer().composite(trueMain, params);
+	}
+
+	/** 世界投影：按当前眼睛用该眼专属 buffer 加水平平移（renderLevel line 661）。 */
+	@Redirect(
+		method = "renderLevel",
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;")
+	)
+	private GpuBufferSlice rebof3d$redirectLevelProjection(ProjectionMatrixBuffer buffer, Matrix4f projectionMatrix) {
+		AnaglyphParams params = Reborn3DRenderer.params();
+		if (params == null || !params.enabled || this.rebof3d$currentEye < 0) {
+			return buffer.getBuffer(projectionMatrix);
+		}
+		Matrix4f shifted = new Matrix4f(projectionMatrix);
+		shifted.translate(StereoMath.projectionShift(this.rebof3d$currentEye, params.cameraSpacing), 0.0f, 0.0f);
+		// 用该眼专属 buffer，避免两眼共用同一 GPU buffer 导致画面被覆盖而无视差。
+		return Reborn3DRenderer.renderer().levelProjectionBuffer(this.rebof3d$currentEye).getBuffer(shifted);
+	}
+
+	/** 手部投影：按当前眼睛用该眼专属 buffer 加相同水平平移（render3dHud line 683）。 */
+	@Redirect(
+		method = "render3dHud",
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lnet/minecraft/client/renderer/Projection;)Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;")
+	)
+	private GpuBufferSlice rebof3d$redirectHudProjection(ProjectionMatrixBuffer buffer, Projection projection) {
+		AnaglyphParams params = Reborn3DRenderer.params();
+		if (params == null || !params.enabled || this.rebof3d$currentEye < 0) {
+			return buffer.getBuffer(projection);
+		}
+		Matrix4f shifted = projection.getMatrix(new Matrix4f());
+		shifted.translate(StereoMath.projectionShift(this.rebof3d$currentEye, params.cameraSpacing), 0.0f, 0.0f);
+		return Reborn3DRenderer.renderer().hudProjectionBuffer(this.rebof3d$currentEye).getBuffer(shifted);
 	}
 }

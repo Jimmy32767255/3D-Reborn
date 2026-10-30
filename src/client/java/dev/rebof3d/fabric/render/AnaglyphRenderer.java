@@ -14,6 +14,7 @@ import com.mojang.renderpearl.api.textures.FilterMode;
 import com.mojang.renderpearl.api.textures.GpuSampler;
 import dev.rebof3d.core.AnaglyphParams;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.ProjectionMatrixBuffer;
 
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -48,6 +49,17 @@ public final class AnaglyphRenderer {
 	private GpuBuffer configUbo;
 
 	/**
+	 * 每只眼睛各自的世界/手部投影 UBO。
+	 *
+	 * <p><b>关键：</b>原版 {@code ProjectionMatrixBuffer} 每个实例只有一个 GPU buffer，
+	 * {@code getBuffer(...)} 会原地覆盖它。若两个眼睛共用一个实例，两遍渲染写入同一 buffer，
+	 * 迟后的执行会读到彼此覆盖后的值 → 两眼画面完全相同、没有任何视差。
+	 * 这里为每只眼睛各分配一个独立实例，确保两遍渲染引用不同的 buffer，视差才成立。
+	 */
+	private ProjectionMatrixBuffer[] levelProjectionBuffers;
+	private ProjectionMatrixBuffer[] hudProjectionBuffers;
+
+	/**
 	 * CPU 侧打包缓冲区。
 	 *
 	 * <p><b>必须使用 {@link java.nio.ByteOrder#nativeOrder()}：</b>{@link ByteBuffer#allocateDirect(int)}
@@ -73,6 +85,28 @@ public final class AnaglyphRenderer {
 
 	public RenderTarget eyeTarget(int eye) {
 		return eye == 0 ? leftTarget : rightTarget;
+	}
+
+	/** 取得某只眼睛专用的世界投影 UBO（首次调用时按 "3d-reborn level eyeN" 创建）。 */
+	public ProjectionMatrixBuffer levelProjectionBuffer(int eye) {
+		if (levelProjectionBuffers == null) {
+			levelProjectionBuffers = new ProjectionMatrixBuffer[] {
+				new ProjectionMatrixBuffer("3d-reborn level eye0"),
+				new ProjectionMatrixBuffer("3d-reborn level eye1")
+			};
+		}
+		return levelProjectionBuffers[eye == 0 ? 0 : 1];
+	}
+
+	/** 取得某只眼睛专用的手部投影 UBO（首次调用时按 "3d-reborn hud eyeN" 创建）。 */
+	public ProjectionMatrixBuffer hudProjectionBuffer(int eye) {
+		if (hudProjectionBuffers == null) {
+			hudProjectionBuffers = new ProjectionMatrixBuffer[] {
+				new ProjectionMatrixBuffer("3d-reborn hud eye0"),
+				new ProjectionMatrixBuffer("3d-reborn hud eye1")
+			};
+		}
+		return hudProjectionBuffers[eye == 0 ? 0 : 1];
 	}
 
 	/**
@@ -141,6 +175,18 @@ public final class AnaglyphRenderer {
 		if (configUbo != null) {
 			configUbo.close();
 			configUbo = null;
+		}
+		if (levelProjectionBuffers != null) {
+			for (ProjectionMatrixBuffer b : levelProjectionBuffers) {
+				b.close();
+			}
+			levelProjectionBuffers = null;
+		}
+		if (hudProjectionBuffers != null) {
+			for (ProjectionMatrixBuffer b : hudProjectionBuffers) {
+				b.close();
+			}
+			hudProjectionBuffers = null;
 		}
 	}
 }

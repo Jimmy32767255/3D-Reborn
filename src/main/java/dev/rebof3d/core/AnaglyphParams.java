@@ -22,19 +22,21 @@ public final class AnaglyphParams {
 	public float cameraSpacing = 1.0f;
 
 	/**
-	 * 左眼滤光片颜色（RGB，0..1）。默认青色 (0,1,1)，即只让绿+蓝通过，红被滤掉。
+	 * 左眼滤光片颜色（RGB，0..1）。默认红色 (1,0,0)，即只让红通过。
 	 * 这是给「左眼图像」乘上的通道权重。
+	 *
+	 * <p>对应通用的「红-青」立体眼镜：红光片在左眼、青（绿+蓝）滤光片在右眼。
 	 */
-	public float leftFilterR = 0.0f;
-	public float leftFilterG = 1.0f;
-	public float leftFilterB = 1.0f;
+	public float leftFilterR = 1.0f;
+	public float leftFilterG = 0.0f;
+	public float leftFilterB = 0.0f;
 
 	/**
-	 * 右眼滤光片颜色（RGB，0..1）。默认红色 (1,0,0)，即只让红通过。
+	 * 右眼滤光片颜色（RGB，0..1）。默认青色 (0,1,1)，即只让绿+蓝通过，红被滤掉。
 	 */
-	public float rightFilterR = 1.0f;
-	public float rightFilterG = 0.0f;
-	public float rightFilterB = 0.0f;
+	public float rightFilterR = 0.0f;
+	public float rightFilterG = 1.0f;
+	public float rightFilterB = 1.0f;
 
 	/**
 	 * 伽玛校准。对合成后的颜色做 {@code pow(color, 1/gamma)} 校正。

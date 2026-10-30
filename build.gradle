@@ -11,6 +11,11 @@ base {
 }
 
 repositories {
+	// ModMenu（可选运行时依赖，仅用于在「模组」菜单中提供配置入口）
+	maven {
+		name = "TerraformersMC"
+		url = "https://maven.terraformersmc.com/releases/"
+	}
 }
 
 loom {
@@ -28,6 +33,15 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// ModMenu：可选依赖，仅用于在「模组」菜单中提供配置入口。
+	// 该 Loom（split source sets）不提供 modImplementation，且 ModMenu 21.0.0 已按官方映射
+	// （named）发布，与本项目命名空间一致，故直接用 client 源集的编译期/运行期配置：
+	//   clientCompileOnly —— 让 compat.ModMenuIntegration 编译通过；
+	//   clientRuntimeOnly —— 仅开发环境可用，runClient 时能看到模组菜单入口。
+	// 不打包进产物 jar，fabric.mod.json 也未列入 depends —— 对最终用户「装了才生效」。
+	clientCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	clientRuntimeOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {

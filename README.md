@@ -17,6 +17,7 @@ versions (first target: **26.3**).
   - 伽玛校准
   - 颜色饱和度
 - 参数自动保存至 `config/rebof3d.json`，重启后保留。
+- 若安装了 [ModMenu](https://modrinth.com/mod/modmenu)，「模组」列表中可直接点击配置按钮打开同一设置界面（可选依赖）。
 - 未启用时零额外开销：渲染路径完全短路，不影响正常游玩。
 
 ## 构建
@@ -37,6 +38,10 @@ versions (first target: **26.3**).
 1. 安装对应 **26.3** 的 Fabric Loader 与 **Fabric API**。
 2. 将 `build/libs/3d-reborn-0.1.0.jar` 放入 `.minecraft/mods/`。
 3. 启动游戏，按 **F8** 打开设置界面，勾选「启用」即可。
+
+> 可选：同时安装 [ModMenu](https://modrinth.com/mod/modmenu)（21.0.0，对应 26.3）后，
+> 「模组」列表中本模组会多出齿轮/配置按钮，可直接打开设置界面。ModMenu 为**可选**依赖，
+> 未安装时仅影响该入口，F8 快捷键与立体效果照常工作（本模组不会打包或强制依赖 ModMenu）。
 
 ## 参数说明
 

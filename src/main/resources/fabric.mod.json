@@ -20,6 +20,9 @@
 		],
 		"client": [
 			"dev.rebof3d.fabric.Reborn3DClient"
+		],
+		"modmenu": [
+			"dev.rebof3d.fabric.compat.ModMenuIntegration"
 		]
 	},
 	"mixins": [

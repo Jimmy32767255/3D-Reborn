@@ -1,0 +1,11 @@
+# Reference decompiled sources (regenerated, not tracked)
+/reference/
+# Build output
+/build/
+/run/
+/.gradle/
+*.iml
+/.idea/
+/.vscode/
+# OS
+.DS_Store

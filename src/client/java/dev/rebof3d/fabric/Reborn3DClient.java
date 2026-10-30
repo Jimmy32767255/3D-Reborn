@@ -25,10 +25,15 @@ public class Reborn3DClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ClientConfig.load();
 
+		// 必须通过 Category.register 注册分类，否则该分类不在 SORT_ORDER 中，
+		// 键位不会出现在「选项 -> 控制 -> 按键绑定」界面里。
+		KeyMapping.Category category = KeyMapping.Category.register(
+			Identifier.fromNamespaceAndPath("rebof3d", "main"));
+
 		openSettingsKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.rebof3d.settings",
 			InputConstants.KEY_F8,
-			new KeyMapping.Category(Identifier.fromNamespaceAndPath("rebof3d", "main"))
+			category
 		));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {

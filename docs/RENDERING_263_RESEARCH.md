@@ -50,3 +50,26 @@
 4. 参数接入 + gamma。
 5. GUI 调参界面（Cloth-Config 风格自绘，或直接自绘 Screen）。
 6. 配置持久化（简单 JSON）。
+
+## 最终实现设计（已确定，m00424 更新）
+
+### 自定义合成管线如何被编译
+- `RenderPipelines.requiredPipelines()`（public）返回的列表被 `ShaderManager.reload()` 读取并逐个 `device.compilePipeline(...)`（ShaderManager.java:73-75）。
+- 因此：**Mixin `RenderPipelines`，`@Inject(at=RETURN)` 到 `requiredPipelines()`**，把我们自定义的 `RenderPipeline` 追加进返回列表 → ShaderManager 会自动编译它。
+- 着色器文件放 `assets/rebof3d/shaders/...`；`ShaderManager.loadConfigs` 用 `manager.listResources("shaders", ...)` 扫描**所有命名空间**（ShaderManager.java:109），故 mod 自己的命名空间着色器会被发现。无 JSON program 定义，直接 .vsh/.fsh。
+- 自定义管线 = `RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)`（含 GLOBALS_SNIPPET，提供 Globals/ortho 投影）`.withVertexShader("rebof3d:core/anaglyph_screenquad").withFragmentShader("rebof3d:post/anaglyph").withBindGroupLayout(<Sampler0,Sampler1,Reborn3DConfig>).withColorTargetState(ColorTargetState.DEFAULT).withLocation("pipeline/anaglyph").build()`。
+- shader 若用 `Globals` 需 `RenderSystem.bindDefaultUniforms` + setUniform("Globals", ...)；参照 PostPass.addToFrame 模式。sampler 名在绑定组里必须与 fsh 的 `uniform sampler2D Xxx;` 一致。
+
+### 双眼渲染（Mixin GameRenderer）
+- `Mixin GameRenderer`：
+  - `@Redirect` 拦截 `this.levelProjectionMatrixBuffer.getBuffer(projectionMatrix)`（GameRenderer.java:661）→ 捕获最终投影 `Matrix4f`（含 bob/传送门扭曲）存字段，然后正常返回原值。
+  - `@WrapOperation`（MixinExtras）拦截 `levelRenderer.render(...)` 调用（GameRenderer.java:669-671）：三维开启时：
+    1. 对 eye in {0,1}：`Matrix4f m = new Matrix4f(capturedProjection).translate(StereoMath.projectionShift(eye,spacing),0,0)`；`RenderSystem.setProjectionMatrix(levelProjectionMatrixBuffer.getBuffer(m), PERSPECTIVE)`；临时把 `mainRenderTarget`（final 字段，用 `@Mutable @Accessor` 或 `@Shadow` 写）指向 left/right `MainTarget`；调用原 `render(...)`。
+    2. 恢复 `mainRenderTarget` 字段与投影。
+    3. 执行合成 pass：创建 `RenderPass`（color=真实 main target color view，无 depth），绑定 anaglyph 管线，setUniform "Sampler0"=left、'Sampler1'=right（近邻/线性），setUniform("Reborn3DConfig", ubo)，draw(3,1,0,0)。ubo 内容：lw.xyz+rw.xyz+gamma+saturation（用 Std140Builder 打包）。
+  - `@Accessor("mainRenderTarget") @Mutable` setter，用于临时切换；或用 `@Shadow @final` + reflect。优先 @Mutable accessor mixin。
+- resize：left/right target 尺寸随 main target；在 redirect 中检测尺寸变化时 resize。
+- 关闭时 `@WrapOperation` 直接调用原 `render(...)`（不干预）。
+
+### 着色器（anaglyph.fsh 逻辑）
+- `vec3 L = texture(Sampler0, uv).rgb * leftWeight; vec3 R = texture(Sampler1, uv).rgb * rightWeight; vec3 c = L + R; c = pow(clamp(c,0,1), vec3(1/gamma));` 输出 `vec4(c,1)`。saturation 简单乘。与 core/StereoMath.combine 保持一致。

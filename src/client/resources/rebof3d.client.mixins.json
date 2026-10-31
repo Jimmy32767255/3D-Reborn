@@ -6,6 +6,7 @@
 	"client": [
 		"RenderPipelinesMixin",
 		"GameRendererMixin",
+		"GuiRendererMixin",
 		"FogRendererMixin"
 	],
 	"injectors": {

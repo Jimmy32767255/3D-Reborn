@@ -12,5 +12,8 @@
   "rebof3d.opt.left_b": "Left Filter B",
   "rebof3d.opt.right_r": "Right Filter R",
   "rebof3d.opt.right_g": "Right Filter G",
-  "rebof3d.opt.right_b": "Right Filter B"
+  "rebof3d.opt.right_b": "Right Filter B",
+  "rebof3d.opt.ui_correct": "UI Color Correction",
+  "rebof3d.opt.on": "ON",
+  "rebof3d.opt.off": "OFF"
 }

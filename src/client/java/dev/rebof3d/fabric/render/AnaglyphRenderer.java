@@ -46,6 +46,15 @@ public final class AnaglyphRenderer {
 	private RenderTarget leftTarget;
 	private RenderTarget rightTarget;
 
+	/**
+	 * 单独的 GUI 图层目标（透明底、预乘 alpha）。
+	 *
+	 * <p>GUI 不再逐眼渲染，而是整幅绘制到这张透明底的离屏目标，再由 {@link #gradeGuiAndBlend}
+	 * 校色并按 alpha 混合回已合成的世界。这样戴红青眼镜时界面亮度与颜色才能恢复，
+	 * 与原版 1.12.2 对纹理预校正的效果一致。
+	 */
+	private RenderTarget guiTarget;
+
 	private GpuBuffer configUbo;
 
 	/**
@@ -81,10 +90,20 @@ public final class AnaglyphRenderer {
 			leftTarget.resize(width, height);
 			rightTarget.resize(width, height);
 		}
+		if (guiTarget == null) {
+			guiTarget = new MainTarget(width, height);
+		} else if (guiTarget.width != width || guiTarget.height != height) {
+			guiTarget.resize(width, height);
+		}
 	}
 
 	public RenderTarget eyeTarget(int eye) {
 		return eye == 0 ? leftTarget : rightTarget;
+	}
+
+	/** 单独的 GUI 图层目标（透明底）。用于把整幅 GUI 绘制到离屏再校色叠加。 */
+	public RenderTarget guiTarget() {
+		return guiTarget;
 	}
 
 	/** 取得某只眼睛专用的世界投影 UBO（首次调用时按 "3d-reborn level eyeN" 创建）。 */
@@ -137,6 +156,57 @@ public final class AnaglyphRenderer {
 		}
 	}
 
+	/**
+	 * 把 GUI 图层目标清为全透明（RGBA=0）并清深度。
+	 *
+	 * <p>每帧在把 GUI 绘制到 {@link #guiTarget()} 之前调用，否则上一帧的内容会残留。
+	 * alpha 清 0 后，GUI 元素经 {@code TRANSLUCENT} 混合会自然累积出「覆盖度」alpha。
+	 */
+	public void clearGuiTarget(int width, int height) {
+		ensureTargets(width, height);
+		if (guiTarget == null) {
+			return;
+		}
+		RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
+			guiTarget.getColorTexture(),
+			new org.joml.Vector4f(0.0f, 0.0f, 0.0f, 0.0f),
+			guiTarget.getDepthTexture(),
+			0.0);
+	}
+
+	/**
+	 * 对已绘制的 GUI 图层校色，并按 alpha 混合回已合成的世界主目标。
+	 *
+	 * <p>核心即原版 1.12.2 的整屏校色（{@code cdt.c()}）：把 GUI 的亮度放进 R、色差放进 G/B，
+	 * 再乘全局伽玛/饱和度，最后以预乘 alpha 混合，使戴红青眼镜时界面恢复亮度与颜色。
+	 */
+	public void gradeGuiAndBlend(RenderTarget mainTarget, AnaglyphParams params) {
+		ensureTargets(mainTarget.width, mainTarget.height);
+		if (guiTarget == null) {
+			return;
+		}
+		updateConfigUbo(params);
+
+		GpuDevice device = RenderSystem.getDevice();
+		CommandEncoder encoder = device.createCommandEncoder();
+		CompiledRenderPipeline pipeline = RenderSystem.getCompiledPipeline(GuiGradePipeline.PIPELINE);
+		GpuSampler sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+
+		try (RenderPass pass = encoder.createRenderPass(
+			() -> "3D-Reborn gui grade blend",
+			mainTarget.getColorTextureView(),
+			Optional.empty(),
+			null,
+			OptionalDouble.empty()
+		)) {
+			pass.setPipeline(pipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("Reborn3DConfig", configUbo);
+			pass.setUniform("Sampler0", guiTarget.getColorTextureView(), sampler);
+			pass.draw(3, 1, 0, 0);
+		}
+	}
+
 	/** 把参数打包进持久 UBO（首次创建，之后回写）。 */
 	private void updateConfigUbo(AnaglyphParams p) {
 		configScratch.clear();
@@ -171,6 +241,10 @@ public final class AnaglyphRenderer {
 		if (rightTarget != null) {
 			rightTarget.destroyBuffers();
 			rightTarget = null;
+		}
+		if (guiTarget != null) {
+			guiTarget.destroyBuffers();
+			guiTarget = null;
 		}
 		if (configUbo != null) {
 			configUbo.close();

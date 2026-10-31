@@ -2,6 +2,7 @@ package dev.rebof3d.fabric.mixin;
 
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import dev.rebof3d.fabric.render.AnaglyphPipeline;
+import dev.rebof3d.fabric.render.GuiGradePipeline;
 import net.minecraft.client.renderer.RenderPipelines;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,9 +22,10 @@ public abstract class RenderPipelinesMixin {
 	@Inject(method = "requiredPipelines", at = @At("RETURN"), cancellable = true)
 	private static void rebof3d$addAnaglyphPipeline(CallbackInfoReturnable<List<RenderPipeline>> cir) {
 		List<RenderPipeline> original = cir.getReturnValue();
-		List<RenderPipeline> augmented = new ArrayList<>(original.size() + 1);
+		List<RenderPipeline> augmented = new ArrayList<>(original.size() + 2);
 		augmented.addAll(original);
 		augmented.add(AnaglyphPipeline.PIPELINE);
+		augmented.add(GuiGradePipeline.PIPELINE);
 		cir.setReturnValue(augmented);
 	}
 }

@@ -21,8 +21,8 @@ public final class AnaglyphConfigScreen extends Screen {
 
 	private static final int WIDGET_WIDTH = 200;
 	private static final int WIDGET_HEIGHT = 20;
-	private static final int ROW = 24;
-	private static final int TOP = 40;
+	private static final int ROW = 22;
+	private static final int TOP = 28;
 
 	private final Screen parent;
 	private final AnaglyphParams params;
@@ -62,6 +62,14 @@ public final class AnaglyphConfigScreen extends Screen {
 		addSlider(cx, y, "rebof3d.opt.saturation", 0.0, 2.0, 100,
 			() -> params.saturation, v -> params.saturation = (float) v,
 			v -> String.format(Locale.ROOT, "%.2f", v));
+		y += ROW;
+
+		// 界面校色开关（anaglyph 下对 GUI/HUD 做原版整屏校色，使戴镜后界面颜色正常）
+		Button uiBtn = Button.builder(uiCorrectLabel(), b -> {
+			params.uiColorCorrect = !params.uiColorCorrect;
+			b.setMessage(uiCorrectLabel());
+		}).bounds(cx, y, WIDGET_WIDTH, WIDGET_HEIGHT).build();
+		this.addRenderableWidget(uiBtn);
 		y += ROW;
 
 		// 左眼滤光片 RGB
@@ -109,6 +117,12 @@ public final class AnaglyphConfigScreen extends Screen {
 
 	private Component enabledLabel() {
 		return Component.translatable(params.enabled ? "rebof3d.opt.enabled.on" : "rebof3d.opt.enabled.off");
+	}
+
+	private Component uiCorrectLabel() {
+		return Component.translatable("rebof3d.opt.ui_correct")
+			.append(": ")
+			.append(Component.translatable(params.uiColorCorrect ? "rebof3d.opt.on" : "rebof3d.opt.off"));
 	}
 
 	@Override

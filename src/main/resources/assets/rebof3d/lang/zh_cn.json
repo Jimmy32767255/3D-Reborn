@@ -12,5 +12,8 @@
   "rebof3d.opt.left_b": "左滤光片 B",
   "rebof3d.opt.right_r": "右滤光片 R",
   "rebof3d.opt.right_g": "右滤光片 G",
-  "rebof3d.opt.right_b": "右滤光片 B"
+  "rebof3d.opt.right_b": "右滤光片 B",
+  "rebof3d.opt.ui_correct": "界面颜色校准",
+  "rebof3d.opt.on": "开",
+  "rebof3d.opt.off": "关"
 }
